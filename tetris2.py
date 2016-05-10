@@ -1,29 +1,17 @@
 import pygame
+import random
 pygame.init()
 
 SCREEN_HEIGHT = 500
 SCREEN_WIDTH = 700
 IMAGE_DIRECTORY = "/Users/ellenmccullagh/Documents/SIP/Pygame/tetris/images/"
-IMAGES = ["black.png", "red.png", "green.png", "blue.png", "orange.png", "lightblue.png"]
+IMAGES = ["black.png", "red.png", "green.png", "blue.png", "orange.png", "lightblue.png", "purple.png", "yellow.png"]
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 
 image_paths = []
 for image in IMAGES:
     image_paths.append(IMAGE_DIRECTORY + image)
-
-class Tetrominoes(pygame.sprite.Sprite):
-    def __init__(self, kind, block_height, block_width, anchor_location, group):
-        pygame.sprite.Sprite.__init__(self, group)
-        self.points = []
-        anchor_x = anchor_location [0]
-        anchor_y = anchor_location [1]
-
-        if kind == "I":
-            self.points = [[anchor_x, anchor_y], [anchor_x, anchor_y + 1], [anchor_x, anchor_y + 2], [anchor_x, anchor_y + 3]]
-        else if kind == "O":
-            self.points = [[anchor_x, anchor_y], [anchor_x + 1, anchor_y], [anchor_x, anchor_y + 1], [anchor_x + 1, anchor_y + 1]]
-
 
 class Square(pygame.sprite.Sprite):
     def __init__(self, height, width, row, column, costumes, location, group):
@@ -65,49 +53,9 @@ class Square(pygame.sprite.Sprite):
         self.neighbor_down = neighbor_down
 
     def setCostume(self, state):
+        #print("state: {}".format(state))
         self.image = self.costumes[state]
         self.state = state
-
-    def moveDown(self):
-        #CASCADING - on states are cascaded down the grid
-        #self.print_block()
-        if self.neighbor_down != "None" and self.state != 0 and (not self.fixed):
-            #print("inside conditional")
-            #print("down neighbor is fixed: {}".format(self.neighbor_down.fixed))
-            if (not self.neighbor_down.fixed):
-                #print("neighbor is not fixed")
-                self.neighbor_down.print_block()
-                self.neighbor_down.setCostume(self.state)
-                #if self.neighbor_up == "None" or self.neighbor_up.state == 0:
-                self.setCostume(0)
-            else:
-                self.fixed = True
-                #print("({}, {}) is fixed because down neighbor fixed".format(self.row, self.column))
-        elif self.neighbor_down == "None" and self.state != 0:
-            self.fixed = True
-            #print("({}, {}) is fixed because reached edge".format(self.row, self.column))
-
-    def moveRight(self):
-        if self.neighbor_right!= "None" and self.state != 0 and not self.fixed and not self.moved_once:
-            if not self.neighbor_right.fixed:
-                #logic! must move necessary blocks before overwriting them.
-                #this doesn't arise on move left because the blocks are tested and moved going left to right.
-                if self.neighbor_right.state == self.state:
-                    self.neighbor_right.moveRight()
-                self.neighbor_right.setCostume(self.state)
-                #need to move the block only once per game loop.
-                self.neighbor_right.moved_once = True
-
-                self.setCostume(0)
-
-    def canIGoLeft(self):
-        if
-
-    def moveLeft(self):
-        if self.neighbor_left != "None" and self.state != 0 and not self.fixed:
-            if not self.neighbor_left.fixed:
-                self.neighbor_left.setCostume(self.state)
-                self.setCostume(0)
 
     def print_block(self):
         print("State: {}; Location: ({}, {})".format(self.state, self.row, self.column))
@@ -187,54 +135,212 @@ class Grid:
             for block in row:
                 block.print_neighbors()
 
-    def startShapeI(self):
-        anchor_x = self.anchor[0]
-        anchor_y = self.anchor[1]
-        I_shape = [[anchor_x, anchor_y], [anchor_x, anchor_y + 1], [anchor_x, anchor_y + 2], [anchor_x, anchor_y + 3]]
-        for coordinate in I_shape:
-            self.blocks[coordinate[1]][coordinate[0]].setCostume(1)
+class Tetromino:
+    def __init__(self, anchor_location):
+        self.anchor_location = anchor_location
+        self.state = 0
+        self.points = []
 
-    def startShapeO(self):
-        anchor_x = self.anchor[0]
-        anchor_y = self.anchor[1]
-        O_shape = [[anchor_x, anchor_y], [anchor_x + 1, anchor_y], [anchor_x, anchor_y + 1], [anchor_x + 1, anchor_y + 1]]
-        for coordinate in O_shape:
-            self.blocks[coordinate[1]][coordinate[0]].setCostume(2)
+    def setKind(self, kind):
+        anchor_x = self.anchor_location [0]
+        anchor_y = self.anchor_location [1]
+        if kind == "I":
+            self.points = [[anchor_x, anchor_y], [anchor_x, anchor_y + 1],
+                            [anchor_x, anchor_y + 2], [anchor_x, anchor_y + 3]]
+            self.state = 1
+        elif kind == "O":
+            self.points = [[anchor_x, anchor_y], [anchor_x + 1, anchor_y],
+                            [anchor_x, anchor_y + 1], [anchor_x + 1, anchor_y + 1]]
+            self.state = 2
+        elif kind == "L":
+            self.points = [[anchor_x, anchor_y], [anchor_x , anchor_y + 1],
+                            [anchor_x, anchor_y + 2], [anchor_x + 1, anchor_y + 2]]
+            self.state = 3
+        elif kind == "J":
+            self.points = [[anchor_x, anchor_y], [anchor_x , anchor_y + 1],
+                            [anchor_x, anchor_y + 2], [anchor_x - 1, anchor_y + 2]]
+            self.state = 4
+        elif kind == "S":
+            self.points = [[anchor_x, anchor_y], [anchor_x + 1 , anchor_y], [anchor_x, anchor_y + 1], [anchor_x - 1, anchor_y + 1]]
+            self.state = 5
+        elif kind == "Z":
+            self.points = [[anchor_x, anchor_y], [anchor_x - 1 , anchor_y], [anchor_x, anchor_y + 1], [anchor_x + 1, anchor_y + 1]]
+            self.state = 6
+        elif kind == "T":
+            self.points = [[anchor_x, anchor_y], [anchor_x + 1 , anchor_y + 1], [anchor_x - 1, anchor_y + 1], [anchor_x, anchor_y + 1]]
+            self.state = 7
+        elif kind == "None":
+            self.points = []
+            self.state = 0
 
-    def startShapeL(self):
-        anchor_x = self.anchor[0]
-        anchor_y = self.anchor[1]
-        O_shape = [[anchor_x, anchor_y], [anchor_x , anchor_y + 1], [anchor_x, anchor_y + 2], [anchor_x + 1, anchor_y + 2]]
-        for coordinate in O_shape:
-            self.blocks[coordinate[1]][coordinate[0]].setCostume(3)
+    def moveDown(self):
+        for i in range(len(self.points)):
+            self.points[i][1] += 1
 
-    def startShapeJ(self):
-        anchor_x = self.anchor[0]
-        anchor_y = self.anchor[1]
-        O_shape = [[anchor_x, anchor_y], [anchor_x , anchor_y + 1], [anchor_x, anchor_y + 2], [anchor_x - 1, anchor_y + 2]]
-        for coordinate in O_shape:
-            self.blocks[coordinate[1]][coordinate[0]].setCostume(4)
+    def moveRight(self):
+        for i in range(len(self.points)):
+            self.points[i][0] += 1
 
-    def dropDown(self):
-        for row in reversed(self.blocks):
+    def moveLeft(self):
+        for i in range(len(self.points)):
+            self.points[i][0] -= 1
+
+    def rotateClockwise(self): # apply translation to origin, rotate then translate back again.
+        point_of_rotation = self.points[1]
+        new_points = []
+        for point in self.points:
+            new_points.append([point[1] - point_of_rotation[1] + point_of_rotation[0], #new x
+                                point_of_rotation[0] - point[0] + point_of_rotation[1]]) #new y
+        print("Old points: {}".format(self.points))
+        print("New points: {}".format(new_points))
+        return new_points
+
+    def rotateCounterClockwise(self):
+        point_of_rotation = self.points[1]
+        new_points = []
+        for point in self.points:
+            new_points.append([point_of_rotation[1] - point[1] + point_of_rotation[0] #new x
+                                , point[0] - point_of_rotation[0] + point_of_rotation[1]]) #new y
+        print("Old points: {}".format(self.points))
+        print("New points: {}".format(new_points))
+        return new_points
+
+class Game:
+    def __init__(self, screen_dimensions, grid_dimensions, images, grid_location, squares_group):
+        self.grid = Grid(grid_dimensions[0], grid_dimensions[1], screen_dimensions[0], screen_dimensions[1], images, grid_location, squares_group)
+        self.grid.setNeighbors()
+        self.tetro = Tetromino((int(grid_dimensions[0]/2), 0))
+        self.tetro.setKind("L")
+        self.tetro_states = ["I", "O", "L", "J", "S", "Z", "T"]
+        self.ready = False
+
+    def randomTetro(self):
+        random_number = random.randint(0, len(self.tetro_states) - 1)
+        print("random number: {}".format(random_number))
+        self.tetro.setKind(self.tetro_states[random_number])
+        self.ready = False
+
+    def resetGrid(self):
+        for row in self.grid.blocks:
             for block in row:
-                block.moveDown()
+                if not block.fixed:
+                    if [block.column, block.row] in self.tetro.points: #if the block is one of the tetromino points it should have the associated costume
+                        block.setCostume(self.tetro.state)
+                    else:
+                        block.setCostume(0) # this block is not one of the tetromino points
 
-    def pushLEFT(self):
-        for row in reversed(self.blocks):
+    def canMoveDown(self):
+        count = 0
+        for point in self.tetro.points:
+            down = self.grid.blocks[point[1]][point[0]].neighbor_down
+            if down == "None" or down.fixed:
+                    count += 1
+        if count == 0:
+            return True
+        else:
+            return False
+
+    def moveDown(self):
+        if self.canMoveDown():
+            self.tetro.moveDown()
+            self.resetGrid()
+            if not self.canMoveDown():
+                for point in self.tetro.points:
+                    self.grid.blocks[point[1]][point[0]].fixed = True
+                    self.tetro.setKind("None")
+                    self.ready = True
+            else:
+                self.ready = False
+
+    def canMoveRight(self):
+        count = 0
+        for point in self.tetro.points:
+            print("row: {}, column:{}".format(point[0], point[1]))
+            right = self.grid.blocks[point[1]][point[0]].neighbor_right
+            if right == "None" or right.fixed:
+                    count += 1
+        if count == 0:
+            return True
+        else:
+            return False
+
+    def moveRight(self):
+        if self.canMoveRight():
+            self.tetro.moveRight()
+            self.resetGrid()
+
+    def canMoveLeft(self):
+        count = 0
+        for point in self.tetro.points:
+            left = self.grid.blocks[point[1]][point[0]].neighbor_left
+            if left == "None" or left.fixed:
+                    count += 1
+        if count == 0:
+            return True
+        else:
+            return False
+
+    def moveLeft(self):
+        if self.canMoveLeft():
+            self.tetro.moveLeft()
+            self.resetGrid()
+
+    def rowsFilled(self):
+        filled_rows = []
+        for row in reversed(self.grid.blocks):
+            total = 0
             for block in row:
-                block.moveLeft()
+                if block.state != 0 and block.fixed:
+                    total += 1
+            if total == self.grid.blocks_across:
+                filled_rows.append(row[0].row) #row number
+        return filled_rows
 
-    def pushRight(self):
-        for row in reversed(self.blocks):
-            for block in row:
-                block.moveRight()
+    def moveRowsDown(self, start_row):
+        for i in reversed(range(0, start_row + 1)): #want inclusive
+            for j in range(0, self.grid.blocks_across): #moving across the row from left to right
+                print("indices: i = {}, j = {}".format(i, j))
+                if i == 0:
+                    self.grid.blocks[i][j].fixed = False
+                    self.grid.blocks[i][j].setCostume(0)
+                else:
+                    self.grid.blocks[i][j].fixed = False
+                    self.grid.blocks[i][j].setCostume(self.grid.blocks[i-1][j].state) #minus 1 goes up
+                    self.grid.blocks[i][j].fixed = self.grid.blocks[i-1][j].fixed
 
-    def resetMovedOnce(self):
-        for row in self.blocks:
-            for block in row:
-                block.moved_once = False
+    def filledRowAnimation(self, row):
+        print("animation here")
+        pygame.display.flip()
 
+    def clearFilledRows(self):
+        filled_rows = self.rowsFilled()
+        for row_filled in filled_rows:
+            self.filledRowAnimation(row_filled)
+            print("this row is filled: {}".format(row_filled))
+            self.moveRowsDown(row_filled) #don't need to minus one because the range function that is reversed later is not inclusive
+
+    def canRotateClockwise(self):
+        for point in self.tetro.rotateClockwise():
+            if not(0 <= point[0] < self.grid.blocks_across and 0 <= point[1] < self.grid.blocks_updown):
+                return False
+        return True
+
+    def canRotateCounterClockwise(self):
+        count = 0
+        for point in self.tetro.rotateCounterClockwise():
+            #print("New X = {}, max = {}".format(point[0], self.grid.blocks_across))
+            #print("New Y = {}, max = {}".format(point[1], self.grid.blocks_updown))
+            if not(0 <= point[0] < self.grid.blocks_across and 0 <= point[1] < self.grid.blocks_updown):
+                return False
+        return True
+
+    def rotateClockwise(self):
+        if self.canRotateClockwise():
+            self.tetro.points = self.tetro.rotateClockwise()
+
+    def rotateCounterClockwise(self):
+        if self.canRotateCounterClockwise():
+            self.tetro.points = self.tetro.rotateCounterClockwise()
 
 
 def main():
@@ -244,18 +350,22 @@ def main():
     done = False
 
     squares_group = pygame.sprite.Group()
+    tetromino_group = pygame.sprite.Group()
 
-    main_grid = Grid(12, 16, 300, 400, image_paths, (200, 40), squares_group)
-    main_grid.setNeighbors()
-    #main_grid.print_neighbors()
+    main_game = Game((240, 480), (10, 20), image_paths, (200, 10), squares_group)
+
     screen.fill((0, 255, 0))
-    main_grid.startShapeJ()
-    main_grid.draw(screen)
+
+    main_game.grid.draw(screen)
     pygame.display.flip()
     pygame.time.wait(2000)
 
     while not done:
         screen.fill((0, 255, 0))
+        if main_game.ready:
+            main_game.randomTetro()
+            main_game.grid.draw(screen)
+            pygame.display.flip()
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -263,20 +373,20 @@ def main():
                 break
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RIGHT:
-                    main_grid.pushRight()
+                    main_game.moveRight()
                 if event.key == pygame.K_LEFT:
-                    main_grid.pushLEFT()
+                    main_game.moveLeft()
+                if event.key == pygame.K_a:
+                    main_game.rotateCounterClockwise()
+                if event.key == pygame.K_d:
+                    main_game.rotateClockwise()
 
-        #main_grid.print_grid()
-        main_grid.dropDown()
+        main_game.moveDown()
+        main_game.clearFilledRows()
 
-        #main_grid.print_grid()
-        main_grid.resetMovedOnce() #necessary to unfreeze blocks from right / left movement.
-        main_grid.draw(screen)
+        main_game.grid.draw(screen)
         pygame.display.flip()
         clock.tick(3)
-
-
 
 if __name__ == '__main__':
     main()
