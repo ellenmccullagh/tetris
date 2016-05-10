@@ -4,7 +4,7 @@ pygame.init()
 
 SCREEN_HEIGHT = 500
 SCREEN_WIDTH = 700
-IMAGE_DIRECTORY = "/Users/ellenmccullagh/Documents/SIP/Pygame/tetris/images/"
+IMAGE_DIRECTORY = "images/"
 IMAGES = ["black.png", "red.png", "green.png", "blue.png", "orange.png", "lightblue.png", "purple.png", "yellow.png"]
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -167,7 +167,7 @@ class Tetromino:
             self.points = [[anchor_x, anchor_y], [anchor_x - 1 , anchor_y], [anchor_x, anchor_y + 1], [anchor_x + 1, anchor_y + 1]]
             self.state = 6
         elif kind == "T":
-            self.points = [[anchor_x, anchor_y], [anchor_x + 1 , anchor_y + 1], [anchor_x - 1, anchor_y + 1], [anchor_x, anchor_y + 1]]
+            self.points = [[anchor_x, anchor_y], [anchor_x + 1 , anchor_y], [anchor_x + 2, anchor_y], [anchor_x + 1, anchor_y + 1]]
             self.state = 7
         elif kind == "None":
             self.points = []
@@ -213,6 +213,8 @@ class Game:
         self.tetro.setKind("L")
         self.tetro_states = ["I", "O", "L", "J", "S", "Z", "T"]
         self.ready = False
+        self.score = 0
+        self.myfont = pygame.font.SysFont("monospace", 15)
 
     def randomTetro(self):
         random_number = random.randint(0, len(self.tetro_states) - 1)
@@ -294,6 +296,7 @@ class Game:
                     total += 1
             if total == self.grid.blocks_across:
                 filled_rows.append(row[0].row) #row number
+                self.score += 1
         return filled_rows
 
     def moveRowsDown(self, start_row):
@@ -323,6 +326,8 @@ class Game:
         for point in self.tetro.rotateClockwise():
             if not(0 <= point[0] < self.grid.blocks_across and 0 <= point[1] < self.grid.blocks_updown):
                 return False
+            if self.grid.blocks[point[1]][point[0]].fixed:
+                return False
         return True
 
     def canRotateCounterClockwise(self):
@@ -331,6 +336,8 @@ class Game:
             #print("New X = {}, max = {}".format(point[0], self.grid.blocks_across))
             #print("New Y = {}, max = {}".format(point[1], self.grid.blocks_updown))
             if not(0 <= point[0] < self.grid.blocks_across and 0 <= point[1] < self.grid.blocks_updown):
+                return False
+            if self.grid.blocks[point[1]][point[0]].fixed:
                 return False
         return True
 
@@ -341,6 +348,10 @@ class Game:
     def rotateCounterClockwise(self):
         if self.canRotateCounterClockwise():
             self.tetro.points = self.tetro.rotateCounterClockwise()
+
+    def displayScore(self, screen, location):
+        label = self.myfont.render("Score: {}".format(self.score), 1, (0, 0, 0))
+        screen.blit(label, location)
 
 
 def main():
@@ -362,6 +373,8 @@ def main():
 
     while not done:
         screen.fill((0, 255, 0))
+        main_game.displayScore(screen, (10, 10))
+
         if main_game.ready:
             main_game.randomTetro()
             main_game.grid.draw(screen)
