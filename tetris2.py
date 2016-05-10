@@ -46,6 +46,13 @@ class Square(pygame.sprite.Sprite):
 
         self.chain = [] #this is for when
 
+    def fix(self):
+        self.fixed = True
+
+    def resetBlock(self):
+        self.fixed = False
+        self.setCostume(0)
+
     def setNeighbors(self, neighbor_right, neighbor_left, neighbor_up, neighbor_down):
         self.neighbor_right = neighbor_right
         self.neighbor_left = neighbor_left
@@ -135,11 +142,30 @@ class Grid:
             for block in row:
                 block.print_neighbors()
 
+    def restartGrid(self):
+        for row in self.blocks:
+            for block in row:
+                block.resetBlock()
+
+
 class Tetromino:
     def __init__(self, anchor_location):
         self.anchor_location = anchor_location
-        self.state = 0
+        self.kinds = ["None", "I", "O", "L", "J", "S", "Z", "T"]
+        self.state = random.randint(1, len(self.kinds) - 1)
+        self.next_state = random.randint(1, len(self.kinds))
         self.points = []
+
+
+    def setNext(self, next_state):
+        print("Next State: {}".format(self.next_state))
+        print("Next next state: {}".format(next_state))
+        self.state = self.next_state
+        self.setKind(self.kinds[self.state])
+        self.next_state = next_state
+
+    def setCurrent(self, state):
+        self.setKind(self.kinds[state])
 
     def setKind(self, kind):
         anchor_x = self.anchor_location [0]
@@ -210,20 +236,73 @@ class Game:
         self.grid = Grid(grid_dimensions[0], grid_dimensions[1], screen_dimensions[0], screen_dimensions[1], images, grid_location, squares_group)
         self.grid.setNeighbors()
         self.tetro = Tetromino((int(grid_dimensions[0]/2), 0))
-        self.tetro.setKind("L")
-        self.tetro_states = ["I", "O", "L", "J", "S", "Z", "T"]
+        self.tetro.setNext(random.randint(1, len(self.tetro.kinds) - 1)) #sets random state to the next state and uses updates the current state with previous next_state
         self.ready = False
         self.score = 0
         self.myfont = pygame.font.SysFont("monospace", 15)
+        self.myfont2 = pygame.font.SysFont("monospace", 15)
+
+        self.lost = False
+        self.high_scores = []
+
+        self.side_grid = Grid(4, 4, 100, 100, images, (550, 10), squares_group)
+        self.side_tetro = Tetromino((1, 0))
+
+    def printHighScores(self, screen):
+        label = self.myfont2.render("High Scores: ", 1, (0, 0, 0))
+        screen.blit(label, (550, 150))
+        count = 0
+        for score in self.high_scores:
+            print ("score: {}".format(score))
+            label = self.myfont2.render(str(score), 1, (0, 0, 0))
+            screen.blit(label, (550, 165 + 14 * count))
+            count += 1
+
+    def restartGame(self):
+        self.score = 0
+        self.grid.restartGrid()
+        self.ready = True
+        self.lost = False
+
+    def setHighScore(self):
+        self.high_scores.append(self.score)
+        count = 0
+        while count != len(self.high_scores):
+            count = 1
+            if len(self.high_scores) != 1:
+                for i in range(len(self.high_scores) - 1):
+                    if self.high_scores[i] < self.high_scores[i+1]:
+                        self.high_scores[i], self.high_scores[i+1] = self.high_scores[i+1], self.high_scores[i]
+                    else:
+                        count += 1
+        if count > 4:
+            while len(self.high_scores) > 5:
+                self.high_scores.pop(5)
+
+    def testConflict(self, points): # tests the grid to see if the point set has current conflicts (intersects with fixed blocks)
+        for point in points:
+            print("Point: {}".format(point))
+            self.grid.blocks[point[1]][point[0]].print_block()
+            if self.grid.blocks[point[1]][point[0]].fixed:
+                return True
+        return False
+
+    def lostGame(self):
+        print("lost")
+        self.lost = True
+        self.setHighScore()
+        #self.restartGame()
 
     def randomTetro(self):
-        random_number = random.randint(0, len(self.tetro_states) - 1)
-        print("random number: {}".format(random_number))
-        self.tetro.setKind(self.tetro_states[random_number])
-        self.ready = False
+        print("This is running")
+        random_number = random.randint(1, len(self.tetro.kinds) - 1)
+        #print("random number: {}".format(random_number))
+        self.tetro.setNext(random_number)
+        if self.testConflict(self.tetro.points): #if there is a conflict with this new tetromino
+            self.lostGame()
 
-    def resetGrid(self):
-        for row in self.grid.blocks:
+    def resetGrid(self, generic_grid): #sets the blocks in the grid to the correct state if they are part of the tetromino
+        for row in generic_grid.blocks:
             for block in row:
                 if not block.fixed:
                     if [block.column, block.row] in self.tetro.points: #if the block is one of the tetromino points it should have the associated costume
@@ -231,45 +310,58 @@ class Game:
                     else:
                         block.setCostume(0) # this block is not one of the tetromino points
 
+    def resetSideGrid(self): #sets the blocks in the grid to the correct state if they are part of the tetromino
+        self.side_tetro.setCurrent(self.tetro.next_state)
+        for row in self.side_grid.blocks:
+            for block in row:
+                if not block.fixed:
+                    if [block.column, block.row] in self.side_tetro.points: #if the block is one of the tetromino points it should have the associated costume
+                        block.setCostume(self.side_tetro.state)
+                    else:
+                        block.setCostume(0) # this block is not one of the tetromino points
+
+    def drawSideGrid(self, screen):
+        for row in self.side_grid.blocks:
+            for block in row:
+                block.draw(screen)
+
     def canMoveDown(self):
-        count = 0
         for point in self.tetro.points:
             down = self.grid.blocks[point[1]][point[0]].neighbor_down
             if down == "None" or down.fixed:
-                    count += 1
-        if count == 0:
-            return True
+                    return False
+        return True
+
+    def fixTetro(self):
+        if not self.canMoveDown():
+            for point in self.tetro.points:
+                self.grid.blocks[point[1]][point[0]].fix()
+            self.tetro.setCurrent(0) #sets state to "None"
+            print("tetro fixed")
+            self.ready = True
         else:
-            return False
+            self.ready = False
 
     def moveDown(self):
         if self.canMoveDown():
             self.tetro.moveDown()
-            self.resetGrid()
-            if not self.canMoveDown():
-                for point in self.tetro.points:
-                    self.grid.blocks[point[1]][point[0]].fixed = True
-                    self.tetro.setKind("None")
-                    self.ready = True
-            else:
-                self.ready = False
+            self.resetGrid(self.grid)
+            self.fixTetro()
 
     def canMoveRight(self):
-        count = 0
         for point in self.tetro.points:
             print("row: {}, column:{}".format(point[0], point[1]))
             right = self.grid.blocks[point[1]][point[0]].neighbor_right
             if right == "None" or right.fixed:
-                    count += 1
-        if count == 0:
-            return True
-        else:
-            return False
+                    return False
+        return True
 
     def moveRight(self):
         if self.canMoveRight():
             self.tetro.moveRight()
-            self.resetGrid()
+            self.fixTetro()
+            self.resetGrid(self.grid)
+
 
     def canMoveLeft(self):
         count = 0
@@ -285,7 +377,8 @@ class Game:
     def moveLeft(self):
         if self.canMoveLeft():
             self.tetro.moveLeft()
-            self.resetGrid()
+            self.fixTetro()
+            self.resetGrid(self.grid)
 
     def rowsFilled(self):
         filled_rows = []
@@ -363,20 +456,28 @@ def main():
     squares_group = pygame.sprite.Group()
     tetromino_group = pygame.sprite.Group()
 
-    main_game = Game((240, 480), (10, 20), image_paths, (200, 10), squares_group)
+    grid_dimensions = (240, 480)
+    block_dimensions = (10, 20)
+    grid_location = (int(SCREEN_WIDTH / 2 - grid_dimensions[0] / 2), int(SCREEN_HEIGHT / 2 - grid_dimensions[1] / 2))
+    main_game = Game(grid_dimensions, block_dimensions, image_paths, grid_location, squares_group)
 
     screen.fill((0, 255, 0))
 
     main_game.grid.draw(screen)
     pygame.display.flip()
-    pygame.time.wait(2000)
+    #pygame.time.wait(2000)
 
     while not done:
         screen.fill((0, 255, 0))
         main_game.displayScore(screen, (10, 10))
+        main_game.printHighScores(screen)
+        main_game.resetSideGrid()
+        main_game.drawSideGrid(screen)
 
         if main_game.ready:
             main_game.randomTetro()
+            if main_game.lost:
+                main_game.restartGame()
             main_game.grid.draw(screen)
             pygame.display.flip()
 
@@ -399,7 +500,7 @@ def main():
 
         main_game.grid.draw(screen)
         pygame.display.flip()
-        clock.tick(3)
+        clock.tick(main_game.score + 3)
 
 if __name__ == '__main__':
     main()
